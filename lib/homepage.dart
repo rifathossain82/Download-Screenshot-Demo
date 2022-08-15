@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -24,7 +25,7 @@ class _HomepageState extends State<Homepage> {
   double progress = 0.0;
   String url = 'https://thumbs.dreamstime.com/b/environment-earth-day-hands-trees-growing-seedlings-bokeh-green-background-female-hand-holding-tree-nature-field-gra-130247647.jpg';
 
-  Future<bool> saveVideo(String url, String fileName) async {
+  Future<bool> saveFile() async {
     Directory directory;
     try {
       if (Platform.isAndroid) {
@@ -41,7 +42,7 @@ class _HomepageState extends State<Homepage> {
               break;
             }
           }
-          newPath = newPath + "/DSDApp";
+          newPath = newPath + "/DSDApp/images/";
           directory = Directory(newPath);
         } else {
           return false;
@@ -56,7 +57,7 @@ class _HomepageState extends State<Homepage> {
         }
       }
 
-      File saveFile = File(directory.path + "/$fileName");
+      File saveFile = File(directory.path + "/img_${DateTime.now()}.jpg");
 
       if (!await directory.exists()) {
         await directory.create(recursive: true);
@@ -83,7 +84,7 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  Future<bool> saveScreenshot(Uint8List bytes, String fileName) async {
+  Future<bool> saveScreenshot() async {
     Directory directory;
     try {
       if (Platform.isAndroid) {
@@ -100,7 +101,7 @@ class _HomepageState extends State<Homepage> {
               break;
             }
           }
-          newPath = newPath + "/DSDApp";
+          newPath = newPath + "/DSDApp/screenshots/";
           directory = Directory(newPath);
         } else {
           return false;
@@ -115,13 +116,16 @@ class _HomepageState extends State<Homepage> {
         }
       }
 
-      File saveFile = File(directory.path + "/$fileName");
+      var fileName = 'screenshots_${DateTime.now()}';
 
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
       if (await directory.exists()) {
-        await ImageGallerySaver.saveImage(bytes, name: fileName);
+        final image = await controller.captureFromWidget(buildImage());
+        var saveFile = await File(directory.path + "/$fileName"+".png").writeAsBytes(image);
+        final result = await ImageGallerySaver.saveFile(saveFile.path);
+        print(result['filePath']);
         return true;
       }
 
@@ -153,14 +157,12 @@ class _HomepageState extends State<Homepage> {
       isLoading = true;
     });
 
-    bool downloaded = await saveVideo(
-        url,
-        "tree.jpg");
+    bool downloaded = await saveFile();
     if(downloaded){
-      print("File Downloaded");
+      showToast('File Downloaded');
     }
     else{
-      print("File Downloaded Failed");
+      showToast('File Downloaded Failed');
     }
 
     setState(() {
@@ -176,39 +178,42 @@ class _HomepageState extends State<Homepage> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: isLoading ?
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Center(
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 10,
-          ),
-        ),
-      )
-          :
-      Center(
+      body: Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             buildImage(),
-            SizedBox(height: 16,),
+            SizedBox(height: 20,),
             FlatButton.icon(
               onPressed: (){
                 download();
               },
-              icon: Icon(Icons.download),
-              label: Text('Download'),
+              height: 50,
+              minWidth: 220,
+              color: Colors.blue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              textColor: Colors.white,
+              icon: Icon(isLoading? Icons.downloading : Icons.download, color: Colors.white,),
+              label: Text(isLoading? 'Downloading......' : 'Download'),
             ),
+            SizedBox(height: 16,),
             FlatButton.icon(
               onPressed: ()async{
-                await [Permission.storage].request();
-                final image = await controller.captureFromWidget(buildImage());
-                final result = await ImageGallerySaver.saveImage(image, name: 'ss5');
-                print(result['filePath']);
+                var result = await saveScreenshot();
+                if(result){
+                  showToast('Screenshot saved.');
+                }
+                else{
+                  showToast('Failed to take screenshot.');
+                }
               },
-              icon: Icon(Icons.screenshot),
+              height: 50,
+              minWidth: 220,
+              color: Colors.blue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              textColor: Colors.white,
+              icon: Icon(Icons.screenshot, color: Colors.white,),
               label: Text('Screenshot'),
             ),
           ],
@@ -222,6 +227,18 @@ class _HomepageState extends State<Homepage> {
       height: 200,
       width: 320,
       child: Image.network(url, fit: BoxFit.cover,),
+    );
+  }
+
+  showToast(String msg){
+    Fluttertoast.showToast(
+        msg: "$msg",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.blueGrey,
+        textColor: Colors.white,
+        fontSize: 16.0
     );
   }
 }
